@@ -1,5 +1,7 @@
 # Glifo Studio
 
+[Probar la demo en línea](https://glifo-studio.vercel.app) · [Ver el código](https://github.com/RomanUbal/Glifo-Studio)
+
 Editor visual de diseño web creado por **Román Ubal**. Permite construir una interfaz directamente sobre un lienzo, ajustar sus propiedades y exportar el resultado como un archivo HTML autónomo.
 
 Glifo está pensado como una demostración de producto: combina interacción de escritorio, persistencia local, generación de código y una experiencia visual consistente en una sola aplicación.
@@ -71,5 +73,5 @@ El autoguardado utiliza únicamente el almacenamiento local del navegador. Los p
 
 ## Autor
 
-**Román Ubal** — estudiante de Programación en UTN y desarrollador de software junior.
+**Román Ubal** — desarrollador de software junior con formación en Programación en UTN.
 
