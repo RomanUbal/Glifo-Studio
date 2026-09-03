@@ -1,0 +1,2521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Glifo Studio es un editor visual para diseñar, prototipar y exportar sitios web directamente desde el navegador.">
+    <meta name="theme-color" content="#0a0a0a">
+    <meta property="og:title" content="Glifo Studio — Editor visual de diseño web">
+    <meta property="og:description" content="Diseña con arrastrar y soltar, prueba vistas responsive y exporta HTML autónomo.">
+    <meta property="og:type" content="website">
+    <title>Glifo Studio — Editor visual de diseño web</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <style>
+        /* ============================================================
+           DESIGN TOKENS
+           ============================================================ */
+        :root {
+            --bg:        #0a0a0a;
+            --surface:   #141414;
+            --surface-2: #1c1c1c;
+            --surface-3: #242424;
+            --border:    #2a2a2a;
+            --border-strong: #3a3a3a;
+            --text:      #fafafa;
+            --text-muted:#9ca3af;
+            --text-dim:  #6b7280;
+            --accent:    #f97316;
+            --accent-soft: rgba(249, 115, 22, 0.12);
+            --success:   #10b981;
+            --danger:    #ef4444;
+            --canvas:    #ffffff;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+            --shadow:    0 4px 12px rgba(0,0,0,.4);
+            --shadow-lg: 0 8px 30px rgba(0,0,0,.5);
+            --radius:    8px;
+            --radius-sm: 6px;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { background: var(--bg); }
+
+        body {
+            display: grid;
+            grid-template-rows: 48px 1fr 28px;
+            grid-template-columns: 280px 1fr 300px;
+            grid-template-areas:
+                "topbar topbar topbar"
+                "left   canvas right"
+                "status status status";
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            user-select: none;
+            font-size: 13px;
+        }
+
+        button { font-family: inherit; }
+
+        /* ============================================================
+           SCROLLBAR
+           ============================================================ */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+
+        /* ============================================================
+           TOPBAR
+           ============================================================ */
+        #topbar {
+            grid-area: topbar;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 12px;
+            z-index: 100;
+        }
+        .brand {
+            display: flex; align-items: center; gap: 8px;
+            font-weight: 700; font-size: 14px;
+            padding-right: 12px;
+            border-right: 1px solid var(--border);
+            margin-right: 4px;
+            height: 100%;
+        }
+        .brand-logo {
+            width: 26px; height: 26px;
+            background: var(--accent);
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+            position: relative;
+            box-shadow: 0 2px 6px -1px rgba(255, 107, 26, 0.45), inset 0 1px 0 rgba(255,255,255,0.18);
+        }
+        .brand-logo svg { display: block; }
+        .brand-name {
+            letter-spacing: -0.02em;
+            font-size: 14px;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .brand-name span {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .topbar-group { display: flex; align-items: center; gap: 2px; }
+        .topbar-divider { width: 1px; height: 22px; background: var(--border); margin: 0 6px; }
+
+        .icon-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            width: 32px; height: 32px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background .15s, color .15s;
+        }
+        .icon-btn:hover { background: var(--surface-3); color: var(--text); }
+        .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .icon-btn:disabled:hover { background: transparent; color: var(--text-muted); }
+        .icon-btn.active { background: var(--accent-soft); color: var(--accent); }
+
+        .topbar-spacer { flex: 1; }
+
+        .zoom-display {
+            background: var(--surface-2);
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+            min-width: 56px;
+            text-align: center;
+        }
+
+        .pill-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--surface-3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s, border-color .15s;
+        }
+        .pill-btn:hover { background: var(--border); border-color: var(--border-strong); }
+        .pill-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #1a0a00;
+            font-weight: 600;
+        }
+        .pill-btn.primary:hover { background: #ea580c; border-color: #ea580c; }
+
+        /* ============================================================
+           LEFT PANEL — TOOLS
+           ============================================================ */
+        #panel-left {
+            grid-area: left;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+        .tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+            transition: color .15s, border-color .15s;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .tab-content.hidden { display: none; }
+
+        .group-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 12px 4px 8px 4px;
+        }
+        .group-label:first-child { margin-top: 0; }
+
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .tool-btn {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: var(--radius-sm);
+            padding: 10px 4px 8px 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            transition: background .15s, border-color .15s, transform .1s;
+        }
+        .tool-btn:hover {
+            background: var(--surface-3);
+            border-color: var(--border-strong);
+        }
+        .tool-btn:active { transform: scale(0.96); }
+        .tool-btn svg {
+            width: 18px; height: 18px;
+            stroke: var(--text-muted);
+            stroke-width: 1.6;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .tool-btn:hover svg { stroke: var(--accent); }
+
+        /* Layers list */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .layer-item:hover { background: var(--surface-2); color: var(--text); }
+        .layer-item.active { background: var(--accent-soft); color: var(--accent); }
+        .layer-item svg { width: 14px; height: 14px; flex-shrink: 0; stroke-width: 1.6; }
+        .layer-item .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .layer-item .layer-actions { display: none; gap: 2px; }
+        .layer-item:hover .layer-actions { display: flex; }
+        .layer-mini {
+            background: transparent; border: none; color: var(--text-dim);
+            width: 20px; height: 20px; border-radius: 4px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .layer-mini:hover { background: var(--border); color: var(--text); }
+
+        /* Templates */
+        .template-card {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: border-color .15s, background .15s;
+        }
+        .template-card:hover { border-color: var(--accent); background: var(--surface-3); }
+        .template-card h4 { margin: 0 0 4px 0; font-size: 13px; font-weight: 600; }
+        .template-card p { margin: 0; font-size: 11px; color: var(--text-muted); }
+
+        /* ============================================================
+           CANVAS AREA
+           ============================================================ */
+        #canvas-area {
+            grid-area: canvas;
+            background:
+                radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0);
+            background-size: 24px 24px;
+            background-color: var(--bg);
+            position: relative;
+            overflow: auto;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 32px;
+        }
+
+        #canvas-frame {
+            position: relative;
+            background: var(--canvas);
+            box-shadow: var(--shadow-lg);
+            border-radius: 4px;
+            transform-origin: top center;
+            transition: width .25s ease;
+        }
+
+        #lienzo {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border-radius: 4px;
+        }
+
+        /* ============================================================
+           RIGHT PANEL — PROPERTIES
+           ============================================================ */
+        #panel-right {
+            grid-area: right;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface);
+            position: sticky; top: 0;
+            z-index: 5;
+        }
+        .panel-header h3 {
+            margin: 0;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+        }
+        .panel-header .badge {
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .empty-state {
+            padding: 40px 16px;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .empty-state svg {
+            width: 32px; height: 32px;
+            stroke: var(--border-strong); stroke-width: 1.5; fill: none;
+            margin: 0 auto 12px;
+            display: block;
+        }
+
+        .prop-section {
+            border-bottom: 1px solid var(--border);
+            padding: 14px;
+        }
+        .prop-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .prop-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .prop-row.full { grid-template-columns: 1fr; }
+        .prop-row.three { grid-template-columns: 1fr 1fr 1fr; }
+
+        .prop-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .prop-field label {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+        .prop-input {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 7px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-family: inherit;
+            width: 100%;
+            transition: border-color .15s, background .15s;
+        }
+        .prop-input:hover { border-color: var(--border-strong); }
+        .prop-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: var(--surface-3);
+        }
+        textarea.prop-input { resize: vertical; min-height: 60px; font-family: inherit; }
+
+        /* Color input wrapper */
+        .color-input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+        .color-input-wrap:hover { border-color: var(--border-strong); }
+        .color-input-wrap input[type=color] {
+            width: 26px; height: 28px; border: none; padding: 0;
+            background: transparent; cursor: pointer;
+            flex-shrink: 0;
+        }
+        .color-input-wrap input[type=color]::-webkit-color-swatch-wrapper { padding: 4px; }
+        .color-input-wrap input[type=color]::-webkit-color-swatch { border: none; border-radius: 4px; }
+        .color-input-wrap input[type=text] {
+            background: transparent; border: none; color: var(--text);
+            padding: 6px 8px; font-size: 11px; flex: 1; min-width: 0;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            text-transform: uppercase;
+        }
+        .color-input-wrap input[type=text]:focus { outline: none; }
+
+        /* Slider */
+        .slider-row {
+            display: grid;
+            grid-template-columns: 1fr 60px;
+            gap: 10px;
+            align-items: center;
+        }
+        input[type=range] {
+            -webkit-appearance: none; appearance: none;
+            background: transparent;
+            width: 100%;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            background: var(--border);
+            height: 4px;
+            border-radius: 2px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            margin-top: -6px;
+            width: 16px; height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-moz-range-track { background: var(--border); height: 4px; border-radius: 2px; }
+        input[type=range]::-moz-range-thumb { width: 16px; height: 16px; background: var(--accent); border-radius: 50%; cursor: pointer; border: none; }
+
+        /* Segmented buttons */
+        .segmented {
+            display: flex;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 2px;
+            gap: 2px;
+        }
+        .segmented button {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s, color .15s;
+        }
+        .segmented button:hover { color: var(--text); }
+        .segmented button.active { background: var(--surface-3); color: var(--text); box-shadow: var(--shadow-sm); }
+        .segmented button svg { width: 14px; height: 14px; stroke-width: 1.8; }
+
+        .check-row {
+            display: flex; align-items: center; gap: 8px;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 6px 0;
+        }
+        .check-row input { accent-color: var(--accent); }
+
+        .action-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .action-btn {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: background .15s, border-color .15s;
+        }
+        .action-btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+        .action-btn.danger { color: var(--danger); }
+        .action-btn.danger:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); }
+        .action-btn svg { width: 13px; height: 13px; stroke-width: 1.8; }
+
+        .layer-controls {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+        }
+        .layer-controls button {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 7px 4px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 11px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s, color .15s;
+        }
+        .layer-controls button:hover { background: var(--surface-3); color: var(--text); }
+        .layer-controls button svg { width: 14px; height: 14px; stroke-width: 1.8; }
+
+        /* ============================================================
+           CANVAS ELEMENTS
+           ============================================================ */
+        .elemento-dibujado {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            overflow: hidden;
+            min-width: 20px;
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-size: cover;
+            background-position: center;
+            text-align: center;
+            box-sizing: border-box;
+            padding: 4px 8px;
+        }
+        .elemento-dibujado:active { cursor: grabbing; }
+        .elemento-dibujado.seleccionado {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+        .elemento-dibujado.bloqueado { cursor: not-allowed !important; }
+        .elemento-dibujado.bloqueado.seleccionado { outline-color: var(--danger); }
+        .elemento-dibujado.oculto { display: none; }
+
+        /* Resize handles (visible on selected) */
+        .resize-handle {
+            position: absolute;
+            width: 9px; height: 9px;
+            background: var(--canvas);
+            border: 1.5px solid var(--accent);
+            border-radius: 2px;
+            z-index: 10000;
+            pointer-events: auto;
+        }
+        .resize-handle.tl { top: -5px; left: -5px; cursor: nwse-resize; }
+        .resize-handle.tr { top: -5px; right: -5px; cursor: nesw-resize; }
+        .resize-handle.bl { bottom: -5px; left: -5px; cursor: nesw-resize; }
+        .resize-handle.br { bottom: -5px; right: -5px; cursor: nwse-resize; }
+        .resize-handle.tm { top: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .resize-handle.bm { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .resize-handle.lm { left: -5px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+        .resize-handle.rm { right: -5px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+
+        /* Animations */
+        .anim-boton { transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s, filter .2s !important; }
+        .anim-boton:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 20px rgba(0,0,0,0.15) !important; filter: brightness(1.05); }
+        .anim-tarjeta { transition: transform .3s, box-shadow .3s !important; }
+        .anim-tarjeta:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.12) !important; }
+        .anim-texto { transition: opacity .3s, transform .3s !important; }
+        .anim-texto:hover { opacity: 0.85; transform: scale(1.02); }
+        .anim-basica { transition: filter .3s !important; }
+        .anim-basica:hover { filter: brightness(0.95); }
+
+        /* ============================================================
+           STATUS BAR
+           ============================================================ */
+        #statusbar {
+            grid-area: status;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            gap: 16px;
+            font-size: 11px;
+            color: var(--text-dim);
+            font-variant-numeric: tabular-nums;
+        }
+        #statusbar .stat-item { display: flex; align-items: center; gap: 4px; }
+        #statusbar .stat-item strong { color: var(--text-muted); font-weight: 500; }
+        #statusbar .spacer { flex: 1; }
+
+        /* ============================================================
+           PREVIEW MODE
+           ============================================================ */
+        body.preview-mode {
+            grid-template-columns: 0 1fr 0;
+            grid-template-rows: 48px 1fr 0;
+        }
+        body.preview-mode #panel-left,
+        body.preview-mode #panel-right,
+        body.preview-mode #statusbar { display: none; }
+        body.preview-mode .elemento-dibujado { cursor: default; }
+        body.preview-mode .elemento-dibujado.seleccionado { outline: none; }
+        body.preview-mode .resize-handle { display: none; }
+
+        /* ============================================================
+           TOAST
+           ============================================================ */
+        #toast {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--surface-3);
+            border: 1px solid var(--border-strong);
+            color: var(--text);
+            padding: 10px 16px;
+            border-radius: var(--radius);
+            font-size: 12px;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s, transform .25s;
+            z-index: 1000;
+            display: flex; align-items: center; gap: 8px;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #toast svg { width: 14px; height: 14px; stroke: var(--success); stroke-width: 2; fill: none; }
+
+        /* ============================================================
+           CONTEXT MENU
+           ============================================================ */
+        #context-menu {
+            position: fixed;
+            background: var(--surface-2);
+            border: 1px solid var(--border-strong);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 4px;
+            min-width: 180px;
+            z-index: 9999;
+            display: none;
+        }
+        #context-menu.open { display: block; }
+        .ctx-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 7px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text);
+        }
+        .ctx-item:hover { background: var(--accent-soft); color: var(--accent); }
+        .ctx-item .ctx-shortcut { margin-left: auto; color: var(--text-dim); font-size: 10px; }
+        .ctx-divider { height: 1px; background: var(--border); margin: 4px 0; }
+    </style>
+</head>
+<body>
+
+    <!-- ============ TOPBAR ============ -->
+    <header id="topbar">
+        <div class="brand" title="Glifo Studio">
+            <div class="brand-logo" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+                    <path d="M22 12.5C20.7 10.4 18.5 9 16 9C12.1 9 9.5 12 9.5 16C9.5 20 12.1 23 16 23C19 23 21.5 21 22 18V14.5H16.5"
+                        stroke="white" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="24.5" cy="24.5" r="1.6" fill="white"/>
+                </svg>
+            </div>
+            <div class="brand-name">Glifo<span>Studio</span></div>
+        </div>
+
+        <div class="topbar-group">
+            <button class="icon-btn" onclick="nuevoProyecto()" title="Nuevo proyecto">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            </button>
+            <button class="icon-btn" onclick="document.getElementById('input-proyecto').click()" title="Abrir proyecto">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v13h18V7"/><path d="M3 7l3-4h12l3 4"/><path d="M3 7h18"/></svg>
+            </button>
+            <button class="icon-btn" onclick="exportarJSON()" title="Guardar JSON">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            </button>
+        </div>
+
+        <div class="topbar-divider"></div>
+
+        <div class="topbar-group">
+            <button class="icon-btn" id="btn-undo" onclick="deshacer()" title="Deshacer (Ctrl+Z)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+            </button>
+            <button class="icon-btn" id="btn-redo" onclick="rehacer()" title="Rehacer (Ctrl+Y)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 15-6.7l3 2.7"/></svg>
+            </button>
+        </div>
+
+        <div class="topbar-divider"></div>
+
+        <!-- Responsive viewport selector -->
+        <div class="topbar-group">
+            <button class="icon-btn active" data-viewport="desktop" onclick="setViewport('desktop')" title="Escritorio">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </button>
+            <button class="icon-btn" data-viewport="tablet" onclick="setViewport('tablet')" title="Tablet">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/></svg>
+            </button>
+            <button class="icon-btn" data-viewport="mobile" onclick="setViewport('mobile')" title="Móvil">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg>
+            </button>
+        </div>
+
+        <div class="topbar-divider"></div>
+
+        <!-- Zoom -->
+        <div class="topbar-group">
+            <button class="icon-btn" onclick="ajustarZoom(-0.1)" title="Reducir zoom">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg>
+            </button>
+            <div class="zoom-display" id="zoom-display">100%</div>
+            <button class="icon-btn" onclick="ajustarZoom(0.1)" title="Aumentar zoom">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button class="icon-btn" onclick="resetZoom()" title="Zoom 100%">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h.01M12 12h.01M21 12h.01"/><circle cx="12" cy="12" r="9"/></svg>
+            </button>
+        </div>
+
+        <div class="topbar-spacer"></div>
+
+        <button class="pill-btn" onclick="togglePreview()" id="btn-preview" title="Vista previa (P)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Vista previa
+        </button>
+        <button class="pill-btn primary" onclick="exportarHTMLCompleto()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+            Exportar HTML
+        </button>
+
+        <input type="file" id="input-proyecto" accept=".json" style="display:none" onchange="cargarProyecto(event)">
+    </header>
+
+    <!-- ============ LEFT PANEL ============ -->
+    <aside id="panel-left">
+        <div class="tabs">
+            <button class="tab active" data-tab="elements" onclick="switchTab('elements')">Elementos</button>
+            <button class="tab" data-tab="layers" onclick="switchTab('layers')">Capas</button>
+            <button class="tab" data-tab="templates" onclick="switchTab('templates')">Plantillas</button>
+        </div>
+
+        <!-- ELEMENTS TAB -->
+        <div class="tab-content" id="tab-elements">
+            <div class="group-label">Estructura</div>
+            <div class="tool-grid">
+                <button class="tool-btn" onclick="crearElemento('Hero')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    Hero
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Navbar')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="6" rx="1"/><path d="M7 6h.01M11 6h2M16 6h.01"/></svg>
+                    Navbar
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Footer')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="15" width="18" height="6" rx="1"/><path d="M7 18h2M14 18h3"/></svg>
+                    Footer
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Caja')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    Caja
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Card')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M7 14h6"/></svg>
+                    Card
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Línea')">
+                    <svg viewBox="0 0 24 24"><path d="M3 12h18"/></svg>
+                    Línea
+                </button>
+            </div>
+
+            <div class="group-label">Texto</div>
+            <div class="tool-grid">
+                <button class="tool-btn" onclick="crearElemento('Título')">
+                    <svg viewBox="0 0 24 24"><path d="M4 6v12M4 12h10M14 6v12M18 8l2-2v12"/></svg>
+                    H1
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Subtítulo')">
+                    <svg viewBox="0 0 24 24"><path d="M4 6v12M4 12h10M14 6v12"/></svg>
+                    H2
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Párrafo')">
+                    <svg viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h12M4 18h8"/></svg>
+                    Párrafo
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Lista')">
+                    <svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="5" cy="18" r="1"/><path d="M9 6h12M9 12h12M9 18h10"/></svg>
+                    Lista
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Cita')">
+                    <svg viewBox="0 0 24 24"><path d="M3 21c0-4 3-6 6-6"/><path d="M3 21V9c0-2 2-4 4-4h2v6H6"/><path d="M14 21c0-4 3-6 6-6"/><path d="M14 21V9c0-2 2-4 4-4h2v6h-3"/></svg>
+                    Cita
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Link')">
+                    <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                    Link
+                </button>
+            </div>
+
+            <div class="group-label">Interactivos</div>
+            <div class="tool-grid">
+                <button class="tool-btn" onclick="crearElemento('Botón')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="4"/></svg>
+                    Botón
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Badge')">
+                    <svg viewBox="0 0 24 24"><rect x="6" y="9" width="12" height="6" rx="3"/></svg>
+                    Badge
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Buscador')">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+                    Buscar
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Input')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="1"/><path d="M7 12v.01"/></svg>
+                    Input
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Textarea')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M7 9h10M7 13h6"/></svg>
+                    Textarea
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Select')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="1"/><path d="M16 12l2 2 2-2"/></svg>
+                    Select
+                </button>
+            </div>
+
+            <div class="group-label">Multimedia</div>
+            <div class="tool-grid">
+                <button class="tool-btn" onclick="document.getElementById('input-imagen').click()">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                    Imagen
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Avatar')">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+                    Avatar
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Video')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg>
+                    Video
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Icono')">
+                    <svg viewBox="0 0 24 24"><path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z"/></svg>
+                    Estrella
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Mapa')">
+                    <svg viewBox="0 0 24 24"><path d="M9 3l-6 3v15l6-3 6 3 6-3V3l-6 3-6-3z"/><path d="M9 3v15M15 6v15"/></svg>
+                    Mapa
+                </button>
+                <button class="tool-btn" onclick="crearElemento('IconoSocial')">
+                    <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 10.5l7-3M8.5 13.5l7 3"/></svg>
+                    Social
+                </button>
+            </div>
+
+            <div class="group-label">Feedback / Datos</div>
+            <div class="tool-grid">
+                <button class="tool-btn" onclick="crearElemento('Progreso')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="4" rx="2"/><rect x="3" y="10" width="11" height="4" rx="2" fill="currentColor" opacity="0.3"/></svg>
+                    Progreso
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Rating')">
+                    <svg viewBox="0 0 24 24"><path d="M12 2l2.5 6 6.5.5-5 4.5 1.5 6.5-5.5-3.5-5.5 3.5 1.5-6.5-5-4.5 6.5-.5z" fill="currentColor" opacity="0.3"/></svg>
+                    Rating
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Tabla')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                    Tabla
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Alerta')">
+                    <svg viewBox="0 0 24 24"><path d="M12 2L2 20h20L12 2z"/><path d="M12 9v5M12 17v.01"/></svg>
+                    Alerta
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Tag')">
+                    <svg viewBox="0 0 24 24"><path d="M20 12l-8 8-9-9V3h8z"/><circle cx="7" cy="7" r="1.5"/></svg>
+                    Tag
+                </button>
+                <button class="tool-btn" onclick="crearElemento('KPI')">
+                    <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 5-7"/></svg>
+                    KPI
+                </button>
+            </div>
+
+            <div class="group-label">Formas</div>
+            <div class="tool-grid">
+                <button class="tool-btn" onclick="crearElemento('Rectángulo')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12"/></svg>
+                    Cuadro
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Círculo')">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>
+                    Círculo
+                </button>
+                <button class="tool-btn" onclick="crearElemento('Gradiente')">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12l9-9M3 21l18-18M12 21l9-9"/></svg>
+                    Gradiente
+                </button>
+            </div>
+        </div>
+
+        <!-- LAYERS TAB -->
+        <div class="tab-content hidden" id="tab-layers">
+            <div class="group-label">Capas del proyecto</div>
+            <div id="layers-list"></div>
+        </div>
+
+        <!-- TEMPLATES TAB -->
+        <div class="tab-content hidden" id="tab-templates">
+            <div class="group-label">Plantillas predefinidas</div>
+            <div class="template-card" onclick="cargarPlantilla('landing')">
+                <h4>Landing Page</h4>
+                <p>Hero, descripción y botón de llamada a la acción</p>
+            </div>
+            <div class="template-card" onclick="cargarPlantilla('contacto')">
+                <h4>Formulario de Contacto</h4>
+                <p>Inputs, textarea y botón de envío</p>
+            </div>
+            <div class="template-card" onclick="cargarPlantilla('precios')">
+                <h4>Tarjetas de Precio</h4>
+                <p>Tres planes con destacar opciones</p>
+            </div>
+            <div class="template-card" onclick="cargarPlantilla('perfil')">
+                <h4>Tarjeta de Perfil</h4>
+                <p>Avatar, nombre, descripción y acciones</p>
+            </div>
+            <div class="template-card" onclick="cargarPlantilla('dashboard')">
+                <h4>Dashboard Mini</h4>
+                <p>Navbar, KPIs y barra de progreso</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ============ CANVAS ============ -->
+    <main id="canvas-area">
+        <div id="canvas-frame" style="width: 1200px; height: 800px;">
+            <div id="lienzo" oncontextmenu="abrirContextoLienzo(event)" onclick="deseleccionarFondo(event)"></div>
+        </div>
+    </main>
+
+    <!-- ============ RIGHT PANEL ============ -->
+    <aside id="panel-right">
+        <div class="panel-header">
+            <h3>Inspector</h3>
+            <span class="badge" id="prop-badge" style="display: none;">—</span>
+        </div>
+
+        <div class="empty-state" id="mensaje-vacio">
+            <svg viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/><circle cx="12" cy="12" r="3"/></svg>
+            Selecciona un elemento del lienzo<br>para ver y editar sus propiedades
+        </div>
+
+        <div id="controles-edicion" style="display: none;">
+            <!-- Contenido -->
+            <div class="prop-section">
+                <h4>Contenido</h4>
+                <div class="prop-row full">
+                    <textarea id="input-texto" class="prop-input" rows="2" placeholder="Texto del elemento..." oninput="actualizarDesdePanel()"></textarea>
+                </div>
+            </div>
+
+            <!-- Posición y tamaño -->
+            <div class="prop-section">
+                <h4>Posición y tamaño</h4>
+                <div class="prop-row">
+                    <div class="prop-field">
+                        <label>X</label>
+                        <input type="number" id="input-x" class="prop-input" oninput="actualizarDesdePanel()">
+                    </div>
+                    <div class="prop-field">
+                        <label>Y</label>
+                        <input type="number" id="input-y" class="prop-input" oninput="actualizarDesdePanel()">
+                    </div>
+                </div>
+                <div class="prop-row">
+                    <div class="prop-field">
+                        <label>Ancho</label>
+                        <input type="number" id="input-ancho" class="prop-input" min="20" oninput="actualizarDesdePanel()">
+                    </div>
+                    <div class="prop-field">
+                        <label>Alto</label>
+                        <input type="number" id="input-alto" class="prop-input" min="10" oninput="actualizarDesdePanel()">
+                    </div>
+                </div>
+                <div class="prop-row">
+                    <div class="prop-field">
+                        <label>Rotación</label>
+                        <div class="slider-row">
+                            <input type="range" id="input-rotacion" min="-180" max="180" step="1" oninput="syncRot(this.value)">
+                            <input type="number" id="input-rotacion-num" class="prop-input" min="-180" max="180" oninput="syncRot(this.value)">
+                        </div>
+                    </div>
+                </div>
+                <div class="prop-row">
+                    <div class="prop-field">
+                        <label>Opacidad</label>
+                        <div class="slider-row">
+                            <input type="range" id="input-opacidad" min="0" max="100" step="1" oninput="syncOpa(this.value)">
+                            <input type="number" id="input-opacidad-num" class="prop-input" min="0" max="100" oninput="syncOpa(this.value)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tipografía -->
+            <div class="prop-section">
+                <h4>Tipografía</h4>
+                <div class="prop-row full">
+                    <div class="prop-field">
+                        <select id="input-fuente" class="prop-input" onchange="actualizarDesdePanel()">
+                            <option value="'Inter', system-ui, sans-serif">Inter</option>
+                            <option value="'Segoe UI', sans-serif">Segoe UI</option>
+                            <option value="Arial, sans-serif">Arial</option>
+                            <option value="'Helvetica Neue', sans-serif">Helvetica</option>
+                            <option value="'Times New Roman', serif">Times New Roman</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="'Playfair Display', serif">Playfair</option>
+                            <option value="'Courier New', monospace">Courier New</option>
+                            <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="prop-row">
+                    <div class="prop-field">
+                        <label>Tamaño</label>
+                        <input type="number" id="input-fontsize" class="prop-input" min="8" max="200" oninput="actualizarDesdePanel()">
+                    </div>
+                    <div class="prop-field">
+                        <label>Peso</label>
+                        <select id="input-fontweight" class="prop-input" onchange="actualizarDesdePanel()">
+                            <option value="300">300 Light</option>
+                            <option value="400">400 Regular</option>
+                            <option value="500">500 Medium</option>
+                            <option value="600">600 Semibold</option>
+                            <option value="700">700 Bold</option>
+                            <option value="800">800 Extra</option>
+                            <option value="900">900 Black</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="prop-row">
+                    <div class="prop-field">
+                        <label>Interlínea</label>
+                        <input type="number" step="0.05" id="input-lineheight" class="prop-input" min="0.8" max="3" oninput="actualizarDesdePanel()">
+                    </div>
+                    <div class="prop-field">
+                        <label>Espaciado</label>
+                        <input type="number" step="0.1" id="input-letterspacing" class="prop-input" oninput="actualizarDesdePanel()">
+                    </div>
+                </div>
+                <div class="prop-row full">
+                    <div class="prop-field">
+                        <label>Alineación</label>
+                        <div class="segmented" id="seg-align">
+                            <button data-val="left" onclick="setAlign('left')" title="Izquierda">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M3 12h12M3 18h15"/></svg>
+                            </button>
+                            <button data-val="center" onclick="setAlign('center')" title="Centro">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M6 12h12M5 18h14"/></svg>
+                            </button>
+                            <button data-val="right" onclick="setAlign('right')" title="Derecha">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M9 12h12M6 18h15"/></svg>
+                            </button>
+                            <button data-val="justify" onclick="setAlign('justify')" title="Justificado">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="prop-row full">
+                    <div class="prop-field">
+                        <label>Estilo</label>
+                        <div class="segmented" id="seg-style">
+                            <button data-val="italic" onclick="toggleStyle('italic')" title="Cursiva">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M19 4h-9M14 20H5M15 4L9 20"/></svg>
+                            </button>
+                            <button data-val="underline" onclick="toggleStyle('underline')" title="Subrayado">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 4v8a6 6 0 0 0 12 0V4M4 21h16"/></svg>
+                            </button>
+                            <button data-val="line-through" onclick="toggleStyle('line-through')" title="Tachado">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h18M16 6c0-1-2-2-4-2-3 0-5 1-5 4 0 2 2 3 5 4M8 18c0 1 2 2 4 2 3 0 5-1 5-3"/></svg>
+                            </button>
+                            <button data-val="uppercase" onclick="toggleStyle('uppercase')" title="Mayúsculas">
+                                <span style="font-size:11px;font-weight:700;">AA</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apariencia -->
+            <div class="prop-section">
+                <h4>Apariencia</h4>
+                <div class="prop-row">
+                    <div class="prop-field">
+                        <label>Fondo</label>
+                        <div class="color-input-wrap">
+                            <input type="color" id="input-color" oninput="syncColor('bg', this.value)">
+                            <input type="text" id="input-color-hex" oninput="syncColor('bg', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-field">
+                        <label>Texto</label>
+                        <div class="color-input-wrap">
+                            <input type="color" id="input-color-texto" oninput="syncColor('fg', this.value)">
+                            <input type="text" id="input-color-texto-hex" oninput="syncColor('fg', this.value)">
+                        </div>
+                    </div>
+                </div>
+                <div class="prop-row full">
+                    <label class="check-row">
+                        <input type="checkbox" id="input-gradiente" onchange="actualizarDesdePanel()">
+                        Usar gradiente de fondo
+                    </label>
+                </div>
+                <div class="prop-row" id="row-gradiente" style="display:none;">
+                    <div class="prop-field">
+                        <label>Color 2</label>
+                        <div class="color-input-wrap">
+                            <input type="color" id="input-color2" oninput="syncColor('bg2', this.value)">
+                            <input type="text" id="input-color2-hex" oninput="syncColor('bg2', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-field">
+                        <label>Ángulo</label>
+                        <input type="number" id="input-grad-angulo" class="prop-input" min="0" max="360" value="135" oninput="actualizarDesdePanel()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Borde y radio -->
+            <div class="prop-section">
+                <h4>Borde &amp; radio</h4>
+                <div class="prop-row full">
+                    <div class="prop-field">
+                        <label>Radio (px)</label>
+                        <div class="slider-row">
+                            <input type="range" id="input-borde-range" min="0" max="200" oninput="syncRadio(this.value)">
+                            <input type="number" id="input-borde-num" class="prop-input" min="0" max="200" oninput="syncRadio(this.value)">
+                        </div>
+                    </div>
+                </div>
+                <div class="prop-row three">
+                    <div class="prop-field">
+                        <label>Ancho</label>
+                        <input type="number" id="input-border-width" class="prop-input" min="0" max="20" oninput="actualizarDesdePanel()">
+                    </div>
+                    <div class="prop-field">
+                        <label>Estilo</label>
+                        <select id="input-border-style" class="prop-input" onchange="actualizarDesdePanel()">
+                            <option value="solid">Sólido</option>
+                            <option value="dashed">Discontinuo</option>
+                            <option value="dotted">Puntos</option>
+                            <option value="double">Doble</option>
+                            <option value="none">Ninguno</option>
+                        </select>
+                    </div>
+                    <div class="prop-field">
+                        <label>Color</label>
+                        <input type="color" id="input-border-color" class="prop-input" style="height:32px;padding:2px;" oninput="actualizarDesdePanel()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sombra y efectos -->
+            <div class="prop-section">
+                <h4>Sombra &amp; efectos</h4>
+                <div class="prop-row full">
+                    <div class="prop-field">
+                        <label>Preset de sombra</label>
+                        <select id="input-shadow" class="prop-input" onchange="actualizarDesdePanel()">
+                            <option value="none">Sin sombra</option>
+                            <option value="sm">Pequeña</option>
+                            <option value="md">Media</option>
+                            <option value="lg">Grande</option>
+                            <option value="xl">Extra grande</option>
+                            <option value="glow">Resplandor</option>
+                        </select>
+                    </div>
+                </div>
+                <label class="check-row">
+                    <input type="checkbox" id="input-animacion" onchange="actualizarDesdePanel()">
+                    Animación al hover
+                </label>
+                <label class="check-row">
+                    <input type="checkbox" id="input-bloqueado" onchange="actualizarDesdePanel()">
+                    Bloquear elemento
+                </label>
+            </div>
+
+            <!-- Capas -->
+            <div class="prop-section">
+                <h4>Orden de capa <span id="valor-capa" style="color:var(--text);font-weight:600;">1</span></h4>
+                <div class="layer-controls">
+                    <button onclick="cambiarCapa('fondo')" title="Al fondo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7 7 7-7"/></svg>
+                    </button>
+                    <button onclick="cambiarCapa(-1)" title="Atrás">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                    </button>
+                    <button onclick="cambiarCapa(1)" title="Adelante">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                    <button onclick="cambiarCapa('frente')" title="Al frente">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="prop-section">
+                <div class="action-row">
+                    <button class="action-btn" onclick="duplicarElemento()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>
+                        Duplicar
+                    </button>
+                    <button class="action-btn" onclick="alinearAlCentro()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+                        Centrar
+                    </button>
+                </div>
+                <div class="action-row">
+                    <button class="action-btn danger" onclick="borrarElemento()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></svg>
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas section (always visible) -->
+        <div class="prop-section" style="margin-top: auto; border-bottom: none; border-top: 1px solid var(--border);">
+            <h4>Lienzo</h4>
+            <div class="prop-row">
+                <div class="prop-field">
+                    <label>Fondo</label>
+                    <div class="color-input-wrap">
+                        <input type="color" id="input-color-lienzo" value="#ffffff" oninput="cambiarColorLienzo(this.value)">
+                        <input type="text" id="input-color-lienzo-hex" value="#FFFFFF" oninput="cambiarColorLienzo(this.value)">
+                    </div>
+                </div>
+                <div class="prop-field">
+                    <label>Snap (px)</label>
+                    <input type="number" id="input-snap-size" class="prop-input" min="1" max="100" value="10">
+                </div>
+            </div>
+            <label class="check-row">
+                <input type="checkbox" id="input-mostrar-grid" checked onchange="actualizarFondoLienzo()">
+                Mostrar cuadrícula
+            </label>
+            <label class="check-row">
+                <input type="checkbox" id="input-snap-grid" checked>
+                Snap al mover (Shift = libre)
+            </label>
+        </div>
+    </aside>
+
+    <!-- ============ STATUS BAR ============ -->
+    <footer id="statusbar">
+        <div class="stat-item"><strong>Elementos:</strong> <span id="stat-count">0</span></div>
+        <div class="stat-item"><strong>Sel:</strong> <span id="stat-sel">—</span></div>
+        <div class="stat-item"><strong>Pos:</strong> <span id="stat-pos">0, 0</span></div>
+        <div class="stat-item"><strong>Tam:</strong> <span id="stat-size">— × —</span></div>
+        <div class="spacer"></div>
+        <div class="stat-item"><span id="stat-saved">Autoguardado listo</span></div>
+        <div class="stat-item"><strong>Atajos:</strong> Ctrl+Z deshacer · Ctrl+D duplicar · P preview · Supr eliminar</div>
+    </footer>
+
+    <!-- Hidden inputs -->
+    <input type="file" id="input-imagen" accept="image/*" style="display:none" onchange="agregarImagen(event)">
+
+    <!-- Toast -->
+    <div id="toast"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L20 7"/></svg><span id="toast-msg">Listo</span></div>
+
+    <!-- Context menu -->
+    <div id="context-menu">
+        <div class="ctx-item" onclick="duplicarElemento()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Duplicar<span class="ctx-shortcut">Ctrl+D</span></div>
+        <div class="ctx-item" onclick="copiarElemento()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copiar<span class="ctx-shortcut">Ctrl+C</span></div>
+        <div class="ctx-item" onclick="pegarElemento()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>Pegar<span class="ctx-shortcut">Ctrl+V</span></div>
+        <div class="ctx-divider"></div>
+        <div class="ctx-item" onclick="cambiarCapa('frente')">Traer al frente</div>
+        <div class="ctx-item" onclick="cambiarCapa('fondo')">Enviar al fondo</div>
+        <div class="ctx-divider"></div>
+        <div class="ctx-item" onclick="borrarElemento()" style="color: var(--danger);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Eliminar<span class="ctx-shortcut">Supr</span></div>
+    </div>
+
+    <script>
+        /* ============================================================
+           ESTADO
+           ============================================================ */
+        const VIEWPORTS = {
+            desktop: { w: 1200, h: 800 },
+            tablet:  { w: 768,  h: 1024 },
+            mobile:  { w: 375,  h: 720 }
+        };
+        const SHADOWS = {
+            none: 'none',
+            sm:   '0 1px 2px rgba(0,0,0,0.08)',
+            md:   '0 4px 12px rgba(0,0,0,0.10)',
+            lg:   '0 10px 25px rgba(0,0,0,0.15)',
+            xl:   '0 20px 50px rgba(0,0,0,0.20)',
+            glow: '0 0 30px rgba(249,115,22,0.45)'
+        };
+
+        let elementosDatos = [];
+        let idSeleccionado = null;
+        let elementoArrastrado = null;
+        let diferenciaX = 0, diferenciaY = 0;
+        let estaArrastrando = false;
+        let portapapeles = null;
+        let contadorId = 0;
+        let colorFondoActual = '#ffffff';
+        let zoom = 1;
+        let viewport = 'desktop';
+        const historial = [];
+        const futuro = [];
+        const MAX_HISTORIAL = 80;
+        const AUTOSAVE_KEY = 'glifo-studio-autosave-v1';
+        let autosaveTimer = null;
+        let restaurandoAutoguardado = false;
+        let resizingHandle = null;
+        let resizeStart = null;
+
+        const $ = id => document.getElementById(id);
+
+        /* ============================================================
+           AYUDAS
+           ============================================================ */
+        function nuevoId() { contadorId++; return 'el_' + Date.now() + '_' + contadorId; }
+        function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+        function toast(msg) {
+            $('toast-msg').innerText = msg;
+            $('toast').classList.add('show');
+            clearTimeout(window._tt);
+            window._tt = setTimeout(() => $('toast').classList.remove('show'), 1800);
+        }
+        function snapVal(v) {
+            const n = parseInt($('input-snap-size').value, 10) || 10;
+            return Math.round(v / n) * n;
+        }
+        function obtenerColorSeguro(c) {
+            if (!c || c === 'transparent') return '#ffffff';
+            if (c.startsWith('#')) return c.length === 4 ? '#' + c[1]+c[1]+c[2]+c[2]+c[3]+c[3] : c;
+            const m = c.match(/\d+/g);
+            if (!m) return '#ffffff';
+            const hex = n => (+n).toString(16).padStart(2, '0');
+            return '#' + hex(m[0]) + hex(m[1]) + hex(m[2]);
+        }
+        function isHex(s) { return /^#[0-9a-fA-F]{3,8}$/.test(s); }
+
+        /* ============================================================
+           HISTORIAL
+           ============================================================ */
+        function snapshot() { return JSON.stringify({ elementosDatos, colorFondoActual }); }
+        function guardarHistorial() {
+            historial.push(snapshot());
+            if (historial.length > MAX_HISTORIAL) historial.shift();
+            futuro.length = 0;
+            actualizarBotonesHistorial();
+            $('stat-saved').innerText = 'Cambios sin guardar';
+        }
+        function deshacer() {
+            if (historial.length === 0) return;
+            futuro.push(snapshot());
+            const estado = JSON.parse(historial.pop());
+            restaurarEstado(estado);
+            actualizarBotonesHistorial();
+        }
+        function rehacer() {
+            if (futuro.length === 0) return;
+            historial.push(snapshot());
+            const estado = JSON.parse(futuro.pop());
+            restaurarEstado(estado);
+            actualizarBotonesHistorial();
+        }
+        function restaurarEstado(estado) {
+            colorFondoActual = estado.colorFondoActual;
+            $('input-color-lienzo').value = colorFondoActual;
+            $('input-color-lienzo-hex').value = colorFondoActual.toUpperCase();
+            actualizarFondoLienzo();
+            $('lienzo').innerHTML = '';
+            elementosDatos = [];
+            idSeleccionado = null;
+            estado.elementosDatos.forEach(d => recrearElementoDesdeDatos(d));
+            ocultarPanel();
+            actualizarLista();
+        }
+
+        function obtenerProyecto() {
+            return {
+                configuracion: { fondo: colorFondoActual, viewport },
+                elementos: elementosDatos
+            };
+        }
+
+        function guardarAutoguardado() {
+            if (restaurandoAutoguardado) return;
+            try {
+                if (elementosDatos.length === 0) {
+                    localStorage.removeItem(AUTOSAVE_KEY);
+                    $('stat-saved').innerText = 'Lienzo vacío · autoguardado activo';
+                    return;
+                }
+                localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(obtenerProyecto()));
+                $('stat-saved').innerText = 'Autoguardado · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                $('stat-saved').innerText = 'No se pudo autoguardar';
+            }
+        }
+
+        function programarAutoguardado() {
+            if (restaurandoAutoguardado) return;
+            clearTimeout(autosaveTimer);
+            autosaveTimer = setTimeout(guardarAutoguardado, 500);
+        }
+
+        function restaurarAutoguardado() {
+            const guardado = localStorage.getItem(AUTOSAVE_KEY);
+            if (!guardado) return false;
+            try {
+                const proyecto = JSON.parse(guardado);
+                if (!Array.isArray(proyecto.elementos)) throw new Error('Formato inválido');
+                restaurandoAutoguardado = true;
+                limpiarLienzo();
+                cambiarColorLienzo(proyecto.configuracion?.fondo || '#ffffff');
+                proyecto.elementos.forEach(d => recrearElementoDesdeDatos(normalizar(d)));
+                const vista = proyecto.configuracion?.viewport;
+                setViewport(VIEWPORTS[vista] ? vista : 'desktop');
+                actualizarLista();
+                actualizarStats();
+                restaurandoAutoguardado = false;
+                $('stat-saved').innerText = 'Borrador recuperado automáticamente';
+                toast('Borrador recuperado');
+                return true;
+            } catch {
+                restaurandoAutoguardado = false;
+                localStorage.removeItem(AUTOSAVE_KEY);
+                return false;
+            }
+        }
+        function actualizarBotonesHistorial() {
+            $('btn-undo').disabled = historial.length === 0;
+            $('btn-redo').disabled = futuro.length === 0;
+        }
+
+        /* ============================================================
+           VIEWPORTS
+           ============================================================ */
+        function setViewport(v) {
+            viewport = v;
+            const dim = VIEWPORTS[v];
+            const frame = $('canvas-frame');
+            frame.style.width  = dim.w + 'px';
+            frame.style.height = dim.h + 'px';
+            document.querySelectorAll('[data-viewport]').forEach(b => {
+                b.classList.toggle('active', b.dataset.viewport === v);
+            });
+            programarAutoguardado();
+        }
+
+        /* ============================================================
+           ZOOM
+           ============================================================ */
+        function aplicarZoom() {
+            $('canvas-frame').style.transform = `scale(${zoom})`;
+            $('zoom-display').innerText = Math.round(zoom * 100) + '%';
+        }
+        function ajustarZoom(d) { zoom = clamp(zoom + d, 0.25, 3); aplicarZoom(); }
+        function resetZoom() { zoom = 1; aplicarZoom(); }
+
+        /* ============================================================
+           TABS
+           ============================================================ */
+        function switchTab(id) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('hidden', t.id !== 'tab-' + id));
+            if (id === 'layers') actualizarLista();
+        }
+
+        /* ============================================================
+           ATAJOS
+           ============================================================ */
+        document.addEventListener('keydown', e => {
+            const tag = document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            if ((e.key === 'Delete' || e.key === 'Backspace') && idSeleccionado) {
+                e.preventDefault(); borrarElemento(); return;
+            }
+            if (e.ctrlKey || e.metaKey) {
+                const k = e.key.toLowerCase();
+                if (k === 'c') { copiarElemento(); e.preventDefault(); return; }
+                if (k === 'v') { pegarElemento(); e.preventDefault(); return; }
+                if (k === 'd') { duplicarElemento(); e.preventDefault(); return; }
+                if (k === 'z' && !e.shiftKey) { deshacer(); e.preventDefault(); return; }
+                if (k === 'y' || (k === 'z' && e.shiftKey)) { rehacer(); e.preventDefault(); return; }
+                if (k === 's') { exportarJSON(); e.preventDefault(); return; }
+                if (k === 'a') { /* select-all reservado */ e.preventDefault(); return; }
+            }
+            if (e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.metaKey) {
+                togglePreview(); e.preventDefault(); return;
+            }
+            if (idSeleccionado && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                moverConTeclas(e.key, e.shiftKey ? 10 : 1);
+            }
+        });
+
+        /* ============================================================
+           CONFIG POR TIPO
+           ============================================================ */
+        const configuraciones = {
+            'Hero':       { texto: 'Tu titular impactante aquí', color: '#0f172a', colorTexto: '#ffffff', ancho: 800, alto: 320, borde: 12, fontSize: 42, fontWeight: '700' },
+            'Navbar':     { texto: 'Inicio · Servicios · Contacto', color: '#ffffff', colorTexto: '#1f2937', ancho: 720, alto: 56, borde: 8, fontWeight: '600', shadow: 'sm' },
+            'Footer':     { texto: '© 2026 Tu Marca · Todos los derechos reservados', color: '#0f172a', colorTexto: '#cbd5e1', ancho: 720, alto: 80, fontSize: 13 },
+            'Caja':       { color: '#f1f5f9', ancho: 240, alto: 180, borde: 8 },
+            'Card':       { texto: '', color: '#ffffff', borde: 16, ancho: 280, alto: 320, shadow: 'lg' },
+            'Línea':      { color: '#cbd5e1', ancho: 320, alto: 2, borde: 1 },
+            'Título':     { texto: 'Título principal', ancho: 360, alto: 64, fontSize: 36, fontWeight: '700', color: 'transparent', colorTexto: '#0f172a' },
+            'Subtítulo':  { texto: 'Subtítulo descriptivo', ancho: 320, alto: 44, fontSize: 22, fontWeight: '600', color: 'transparent', colorTexto: '#334155' },
+            'Párrafo':    { texto: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt.', ancho: 380, alto: 100, fontSize: 15, color: 'transparent', colorTexto: '#475569', align: 'left' },
+            'Lista':      { texto: '• Primera opción\n• Segunda opción\n• Tercera opción', ancho: 240, alto: 100, fontSize: 14, color: 'transparent', colorTexto: '#334155', align: 'left' },
+            'Cita':       { texto: '"Las grandes ideas merecen un buen diseño."', ancho: 380, alto: 90, fontSize: 18, color: 'transparent', colorTexto: '#475569', align: 'left', estilo: 'italic' },
+            'Link':       { texto: 'Saber más →', ancho: 120, alto: 30, fontSize: 14, color: 'transparent', colorTexto: '#f97316', estilo: 'underline', fontWeight: '600' },
+            'Botón':      { texto: 'Comenzar', color: '#f97316', colorTexto: '#ffffff', ancho: 160, alto: 48, borde: 8, fontWeight: '600', animado: true, shadow: 'md' },
+            'Badge':      { texto: 'NUEVO', color: '#10b981', colorTexto: '#ffffff', ancho: 76, alto: 24, borde: 12, fontSize: 11, fontWeight: '700' },
+            'Buscador':   { texto: 'Buscar...', color: '#ffffff', colorTexto: '#94a3b8', borde: 24, ancho: 280, alto: 44, borderWidth: 1, borderColor: '#e2e8f0', align: 'left' },
+            'Input':      { texto: 'Escribir aquí', color: '#ffffff', colorTexto: '#94a3b8', borde: 8, ancho: 280, alto: 42, borderWidth: 1, borderColor: '#e2e8f0', align: 'left' },
+            'Textarea':   { texto: 'Mensaje...', color: '#ffffff', colorTexto: '#94a3b8', borde: 8, ancho: 320, alto: 120, borderWidth: 1, borderColor: '#e2e8f0', align: 'left' },
+            'Select':     { texto: 'Selecciona... ▼', color: '#ffffff', colorTexto: '#475569', borde: 8, ancho: 220, alto: 42, borderWidth: 1, borderColor: '#e2e8f0', align: 'left' },
+            'Avatar':     { texto: 'TÚ', color: '#f97316', colorTexto: '#ffffff', borde: 50, ancho: 80, alto: 80, fontSize: 28, fontWeight: '700' },
+            'Imagen':     { texto: '', color: '#f1f5f9', borde: 8, ancho: 240, alto: 180, colorTexto: '#94a3b8' },
+            'Video':      { texto: '▶', color: '#0f172a', colorTexto: '#ffffff', ancho: 320, alto: 180, borde: 8, fontSize: 32 },
+            'Mapa':       { texto: '🗺 Mapa', color: '#dbeafe', colorTexto: '#1e40af', ancho: 300, alto: 200, borde: 8, fontSize: 14, fontWeight: '600' },
+            'Icono':      { texto: '★', color: 'transparent', colorTexto: '#f97316', ancho: 56, alto: 56, fontSize: 40, fontWeight: '700' },
+            'IconoSocial':{ texto: 'in', color: '#0a66c2', colorTexto: '#ffffff', ancho: 44, alto: 44, borde: 50, fontSize: 18, fontWeight: '700' },
+            'Progreso':   { texto: '', color: '#e2e8f0', colorTexto: '#f97316', ancho: 280, alto: 10, borde: 5, especial: 'progreso', valor: 70 },
+            'Rating':     { texto: '★ ★ ★ ★ ☆', color: 'transparent', colorTexto: '#f59e0b', ancho: 160, alto: 30, fontSize: 22, fontWeight: '600', spacing: 2 },
+            'Tabla':      { texto: 'Col 1 | Col 2 | Col 3', color: '#ffffff', colorTexto: '#1f2937', ancho: 360, alto: 120, borde: 6, borderWidth: 1, borderColor: '#e2e8f0', shadow: 'sm', fontSize: 13 },
+            'Alerta':     { texto: '⚠ Mensaje de aviso importante', color: '#fef3c7', colorTexto: '#92400e', ancho: 340, alto: 56, borde: 8, fontSize: 14, fontWeight: '500', borderWidth: 1, borderColor: '#fde68a' },
+            'Tag':        { texto: '#etiqueta', color: '#e0e7ff', colorTexto: '#4338ca', ancho: 90, alto: 26, borde: 4, fontSize: 12, fontWeight: '500' },
+            'KPI':        { texto: '12.4K\nUsuarios', color: '#ffffff', colorTexto: '#0f172a', ancho: 180, alto: 100, borde: 12, fontSize: 24, fontWeight: '700', shadow: 'sm', borderWidth: 1, borderColor: '#e2e8f0' },
+            'Rectángulo':{ color: '#f97316', ancho: 160, alto: 100, borde: 0 },
+            'Círculo':    { color: '#10b981', ancho: 100, alto: 100, borde: 50 },
+            'Gradiente':  { color: '#f97316', color2: '#ec4899', ancho: 240, alto: 160, borde: 12, gradiente: true, anguloGrad: 135 }
+        };
+
+        function obtenerClaseAnimacion(tipo) {
+            if (['Botón','Badge','IconoSocial','Tag'].includes(tipo)) return 'anim-boton';
+            if (['Card','Imagen','Caja','Hero','Video','KPI'].includes(tipo)) return 'anim-tarjeta';
+            if (['Título','Subtítulo','Párrafo','Navbar','Link','Cita'].includes(tipo)) return 'anim-texto';
+            return 'anim-basica';
+        }
+
+        /* ============================================================
+           POSICIÓN INICIAL
+           ============================================================ */
+        function posicionInicial() {
+            const offset = (elementosDatos.length % 12) * 24;
+            return { x: 60 + offset, y: 60 + offset };
+        }
+
+        /* ============================================================
+           CREAR
+           ============================================================ */
+        function crearElemento(tipo, extras = {}) {
+            guardarHistorial();
+            const cfg = configuraciones[tipo] || {};
+            const pos = posicionInicial();
+            const dato = {
+                id: nuevoId(),
+                tipo,
+                nombre: tipo,
+                texto: extras.texto ?? cfg.texto ?? '',
+                color: extras.color ?? cfg.color ?? '#ffffff',
+                color2: cfg.color2 ?? '#ec4899',
+                gradiente: cfg.gradiente ?? false,
+                anguloGrad: cfg.anguloGrad ?? 135,
+                colorTexto: cfg.colorTexto ?? '#1f2937',
+                fontFamily: "'Inter', system-ui, sans-serif",
+                animado: cfg.animado || false,
+                bloqueado: false,
+                oculto: false,
+                x: pos.x,
+                y: pos.y,
+                ancho: cfg.ancho ?? 200,
+                alto: cfg.alto ?? 60,
+                z: elementosDatos.length + 1,
+                borde: cfg.borde ?? 6,
+                borderWidth: cfg.borderWidth ?? 0,
+                borderStyle: cfg.borderStyle ?? 'solid',
+                borderColor: cfg.borderColor ?? '#e2e8f0',
+                fontSize: cfg.fontSize ?? 14,
+                fontWeight: cfg.fontWeight ?? '400',
+                lineHeight: cfg.lineHeight ?? 1.4,
+                letterSpacing: cfg.letterSpacing ?? 0,
+                align: cfg.align ?? 'center',
+                estilo: cfg.estilo ?? '',
+                shadow: cfg.shadow ?? 'none',
+                rotacion: 0,
+                opacidad: 100,
+                imagen: extras.imagen ?? null,
+                especial: cfg.especial ?? null,
+                valor: cfg.valor ?? 70
+            };
+            recrearElementoDesdeDatos(dato);
+            seleccionarElemento(dato.id);
+            actualizarLista();
+            actualizarStats();
+        }
+
+        function agregarImagen(evento) {
+            const archivo = evento.target.files[0];
+            if (!archivo) return;
+            const lector = new FileReader();
+            lector.onload = e => crearElemento('Imagen', { imagen: e.target.result });
+            lector.readAsDataURL(archivo);
+            evento.target.value = '';
+        }
+
+        /* ============================================================
+           RENDER
+           ============================================================ */
+        function recrearElementoDesdeDatos(dato) {
+            const lienzo = $('lienzo');
+            const div = document.createElement('div');
+            div.className = 'elemento-dibujado';
+            if (dato.animado) div.classList.add(obtenerClaseAnimacion(dato.tipo));
+            if (dato.bloqueado) div.classList.add('bloqueado');
+            if (dato.oculto) div.classList.add('oculto');
+            div.id = dato.id;
+            div.dataset.tipo = dato.tipo;
+            div.onmousedown = iniciarArrastre;
+            lienzo.appendChild(div);
+
+            if (!elementosDatos.find(e => e.id === dato.id)) elementosDatos.push(dato);
+            aplicarEstilos(div, dato);
+        }
+
+        function aplicarEstilos(el, d) {
+            // Posición y tamaño
+            el.style.left = d.x + 'px';
+            el.style.top = d.y + 'px';
+            el.style.width = d.ancho + 'px';
+            el.style.height = d.alto + 'px';
+            el.style.zIndex = d.z;
+            el.style.transform = `rotate(${d.rotacion}deg)`;
+            el.style.opacity = (d.opacidad / 100);
+
+            // Forma
+            const radio = d.tipo === 'Círculo' || d.tipo === 'Avatar' || d.tipo === 'IconoSocial' ? '50%' : d.borde + 'px';
+            el.style.borderRadius = radio;
+
+            // Fondo
+            if (d.imagen) {
+                el.style.backgroundImage = `url("${d.imagen}")`;
+                el.style.backgroundSize = 'cover';
+                el.style.backgroundPosition = 'center';
+                el.style.backgroundColor = 'transparent';
+                el.innerHTML = '';
+            } else if (d.gradiente) {
+                el.style.backgroundImage = `linear-gradient(${d.anguloGrad}deg, ${d.color}, ${d.color2})`;
+                el.style.backgroundColor = 'transparent';
+            } else {
+                el.style.backgroundImage = 'none';
+                el.style.backgroundColor = d.color;
+            }
+
+            // Tipografía
+            el.style.color = d.colorTexto;
+            el.style.fontFamily = d.fontFamily;
+            el.style.fontSize = d.fontSize + 'px';
+            el.style.fontWeight = d.fontWeight;
+            el.style.lineHeight = d.lineHeight;
+            el.style.letterSpacing = d.letterSpacing + 'px';
+            el.style.textAlign = d.align;
+            el.style.justifyContent = d.align === 'left' ? 'flex-start' : d.align === 'right' ? 'flex-end' : 'center';
+            el.style.fontStyle = d.estilo.includes('italic') ? 'italic' : 'normal';
+            const deco = [];
+            if (d.estilo.includes('underline')) deco.push('underline');
+            if (d.estilo.includes('line-through')) deco.push('line-through');
+            el.style.textDecoration = deco.join(' ') || 'none';
+            el.style.textTransform = d.estilo.includes('uppercase') ? 'uppercase' : 'none';
+
+            // Border
+            el.style.border = (d.borderWidth > 0 && d.borderStyle !== 'none')
+                ? `${d.borderWidth}px ${d.borderStyle} ${d.borderColor}` : 'none';
+
+            // Sombra
+            el.style.boxShadow = SHADOWS[d.shadow] || 'none';
+
+            // Espacio en blanco para múltiples líneas
+            el.style.whiteSpace = 'pre-wrap';
+
+            // Texto / contenido especial
+            if (d.especial === 'progreso') {
+                el.style.padding = '0';
+                el.style.overflow = 'hidden';
+                el.innerHTML = `<div style="height:100%;width:${d.valor}%;background:${d.colorTexto};transition:width .3s;"></div>`;
+            } else if (!d.imagen) {
+                el.innerText = d.texto || '';
+            }
+
+            // Animación
+            el.classList.remove('anim-boton','anim-tarjeta','anim-texto','anim-basica');
+            if (d.animado) el.classList.add(obtenerClaseAnimacion(d.tipo));
+            el.classList.toggle('bloqueado', d.bloqueado);
+            el.classList.toggle('oculto', d.oculto);
+        }
+
+        /* ============================================================
+           ARRASTRE Y RESIZE CON HANDLES
+           ============================================================ */
+        function iniciarArrastre(evento) {
+            if (evento.button === 2) return; // botón derecho ignora arrastre
+            evento.stopPropagation();
+            const target = evento.currentTarget;
+            seleccionarElemento(target.id);
+
+            const datos = elementosDatos.find(e => e.id === target.id);
+            if (!datos || datos.bloqueado) return;
+
+            elementoArrastrado = target;
+            estaArrastrando = false;
+            const rect = elementoArrastrado.getBoundingClientRect();
+            diferenciaX = evento.clientX - rect.left;
+            diferenciaY = evento.clientY - rect.top;
+            window._inicioArrastreEstado = snapshot();
+
+            document.addEventListener('mousemove', moverElemento);
+            document.addEventListener('mouseup', soltarElemento);
+        }
+
+        function moverElemento(evento) {
+            if (!elementoArrastrado) return;
+            if (!estaArrastrando) {
+                estaArrastrando = true;
+                if (window._inicioArrastreEstado) {
+                    historial.push(window._inicioArrastreEstado);
+                    if (historial.length > MAX_HISTORIAL) historial.shift();
+                    futuro.length = 0;
+                    actualizarBotonesHistorial();
+                }
+            }
+            const lienzo = $('lienzo');
+            const rectLienzo = lienzo.getBoundingClientRect();
+            let nuevaX = (evento.clientX - rectLienzo.left) / zoom - diferenciaX / zoom;
+            let nuevaY = (evento.clientY - rectLienzo.top) / zoom - diferenciaY / zoom;
+
+            const snap = $('input-snap-grid').checked && !evento.shiftKey;
+            if (snap) { nuevaX = snapVal(nuevaX); nuevaY = snapVal(nuevaY); }
+            nuevaX = Math.max(0, nuevaX);
+            nuevaY = Math.max(0, nuevaY);
+
+            elementoArrastrado.style.left = nuevaX + 'px';
+            elementoArrastrado.style.top = nuevaY + 'px';
+
+            const datos = elementosDatos.find(e => e.id === elementoArrastrado.id);
+            if (datos) {
+                datos.x = Math.round(nuevaX);
+                datos.y = Math.round(nuevaY);
+                if (idSeleccionado === datos.id) {
+                    $('input-x').value = datos.x;
+                    $('input-y').value = datos.y;
+                    actualizarStats();
+                }
+            }
+        }
+
+        function soltarElemento() {
+            if (elementoArrastrado) {
+                elementoArrastrado = null;
+                estaArrastrando = false;
+                document.removeEventListener('mousemove', moverElemento);
+                document.removeEventListener('mouseup', soltarElemento);
+                $('stat-saved').innerText = 'Cambios sin guardar';
+            }
+        }
+
+        function moverConTeclas(tecla, paso) {
+            const datos = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!datos || datos.bloqueado) return;
+            guardarHistorial();
+            if (tecla === 'ArrowUp')    datos.y = Math.max(0, datos.y - paso);
+            if (tecla === 'ArrowDown')  datos.y += paso;
+            if (tecla === 'ArrowLeft')  datos.x = Math.max(0, datos.x - paso);
+            if (tecla === 'ArrowRight') datos.x += paso;
+            const el = $(idSeleccionado);
+            el.style.left = datos.x + 'px';
+            el.style.top  = datos.y + 'px';
+            $('input-x').value = datos.x;
+            $('input-y').value = datos.y;
+            actualizarStats();
+        }
+
+        /* ============================================================
+           HANDLES DE RESIZE
+           ============================================================ */
+        function dibujarHandles(elem) {
+            quitarHandles();
+            ['tl','tr','bl','br','tm','bm','lm','rm'].forEach(pos => {
+                const h = document.createElement('div');
+                h.className = 'resize-handle ' + pos;
+                h.dataset.handle = pos;
+                h.onmousedown = iniciarResize;
+                elem.appendChild(h);
+            });
+        }
+        function quitarHandles() {
+            document.querySelectorAll('.resize-handle').forEach(h => h.remove());
+        }
+        function iniciarResize(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            const datos = elementosDatos.find(d => d.id === idSeleccionado);
+            if (!datos || datos.bloqueado) return;
+            window._resizeEstado = snapshot();
+            resizingHandle = e.target.dataset.handle;
+            resizeStart = { x: e.clientX, y: e.clientY, ancho: datos.ancho, alto: datos.alto, dx: datos.x, dy: datos.y };
+            document.addEventListener('mousemove', durarResize);
+            document.addEventListener('mouseup', terminarResize);
+        }
+        function durarResize(e) {
+            const datos = elementosDatos.find(d => d.id === idSeleccionado);
+            if (!datos) return;
+            const dx = (e.clientX - resizeStart.x) / zoom;
+            const dy = (e.clientY - resizeStart.y) / zoom;
+
+            let nA = resizeStart.ancho, nAl = resizeStart.alto, nX = resizeStart.dx, nY = resizeStart.dy;
+            if (resizingHandle.includes('r')) nA = Math.max(20, resizeStart.ancho + dx);
+            if (resizingHandle.includes('l')) { nA = Math.max(20, resizeStart.ancho - dx); nX = resizeStart.dx + dx; }
+            if (resizingHandle.includes('b')) nAl = Math.max(10, resizeStart.alto + dy);
+            if (resizingHandle.includes('t')) { nAl = Math.max(10, resizeStart.alto - dy); nY = resizeStart.dy + dy; }
+            if (resizingHandle === 'tm') { nAl = Math.max(10, resizeStart.alto - dy); nY = resizeStart.dy + dy; }
+            if (resizingHandle === 'bm') { nAl = Math.max(10, resizeStart.alto + dy); }
+            if (resizingHandle === 'lm') { nA = Math.max(20, resizeStart.ancho - dx); nX = resizeStart.dx + dx; }
+            if (resizingHandle === 'rm') { nA = Math.max(20, resizeStart.ancho + dx); }
+
+            datos.ancho = Math.round(nA);
+            datos.alto  = Math.round(nAl);
+            datos.x = Math.round(nX);
+            datos.y = Math.round(nY);
+            const el = $(idSeleccionado);
+            aplicarEstilos(el, datos);
+            actualizarPanel();
+            actualizarStats();
+        }
+        function terminarResize() {
+            if (window._resizeEstado) {
+                historial.push(window._resizeEstado);
+                if (historial.length > MAX_HISTORIAL) historial.shift();
+                futuro.length = 0;
+                actualizarBotonesHistorial();
+            }
+            resizingHandle = null;
+            document.removeEventListener('mousemove', durarResize);
+            document.removeEventListener('mouseup', terminarResize);
+        }
+
+        /* ============================================================
+           SELECCIÓN
+           ============================================================ */
+        function seleccionarElemento(id) {
+            idSeleccionado = id;
+            document.querySelectorAll('.elemento-dibujado').forEach(el => el.classList.remove('seleccionado'));
+            quitarHandles();
+            const el = $(id);
+            const datos = elementosDatos.find(e => e.id === id);
+            if (el && datos) {
+                el.classList.add('seleccionado');
+                if (!datos.bloqueado) dibujarHandles(el);
+                $('controles-edicion').style.display = 'block';
+                $('mensaje-vacio').style.display = 'none';
+                $('prop-badge').style.display = 'inline-block';
+                $('prop-badge').innerText = datos.tipo;
+                actualizarPanel();
+            }
+            document.querySelectorAll('.layer-item').forEach(li =>
+                li.classList.toggle('active', li.dataset.id === id));
+            actualizarStats();
+        }
+
+        function deseleccionarFondo(evento) {
+            if (evento.target.id === 'lienzo') {
+                document.querySelectorAll('.elemento-dibujado').forEach(el => el.classList.remove('seleccionado'));
+                quitarHandles();
+                idSeleccionado = null;
+                ocultarPanel();
+                actualizarStats();
+            }
+        }
+        function ocultarPanel() {
+            $('controles-edicion').style.display = 'none';
+            $('mensaje-vacio').style.display = 'block';
+            $('prop-badge').style.display = 'none';
+        }
+
+        /* ============================================================
+           PANEL
+           ============================================================ */
+        function actualizarPanel() {
+            if (!idSeleccionado) return;
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!d) return;
+
+            $('input-texto').value = d.texto;
+            $('input-fuente').value = d.fontFamily;
+            $('input-fontsize').value = d.fontSize;
+            $('input-fontweight').value = d.fontWeight;
+            $('input-lineheight').value = d.lineHeight;
+            $('input-letterspacing').value = d.letterSpacing;
+            $('input-ancho').value = d.ancho;
+            $('input-alto').value = d.alto;
+            $('input-x').value = d.x;
+            $('input-y').value = d.y;
+            $('input-rotacion').value = d.rotacion;
+            $('input-rotacion-num').value = d.rotacion;
+            $('input-opacidad').value = d.opacidad;
+            $('input-opacidad-num').value = d.opacidad;
+            $('input-borde-range').value = d.borde;
+            $('input-borde-num').value = d.borde;
+            const cBg = obtenerColorSeguro(d.color);
+            const cFg = obtenerColorSeguro(d.colorTexto);
+            const c2  = obtenerColorSeguro(d.color2);
+            $('input-color').value = cBg; $('input-color-hex').value = cBg.toUpperCase();
+            $('input-color-texto').value = cFg; $('input-color-texto-hex').value = cFg.toUpperCase();
+            $('input-color2').value = c2; $('input-color2-hex').value = c2.toUpperCase();
+            $('input-grad-angulo').value = d.anguloGrad;
+            $('input-gradiente').checked = d.gradiente;
+            $('row-gradiente').style.display = d.gradiente ? 'grid' : 'none';
+            $('input-border-width').value = d.borderWidth;
+            $('input-border-style').value = d.borderStyle;
+            $('input-border-color').value = obtenerColorSeguro(d.borderColor);
+            $('input-shadow').value = d.shadow;
+            $('valor-capa').innerText = d.z;
+            $('input-animacion').checked = !!d.animado;
+            $('input-bloqueado').checked = !!d.bloqueado;
+
+            // Segmentos
+            document.querySelectorAll('#seg-align button').forEach(b =>
+                b.classList.toggle('active', b.dataset.val === d.align));
+            document.querySelectorAll('#seg-style button').forEach(b =>
+                b.classList.toggle('active', d.estilo.includes(b.dataset.val)));
+        }
+
+        function actualizarDesdePanel() {
+            if (!idSeleccionado) return;
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!d) return;
+            const el = $(idSeleccionado);
+
+            d.texto = $('input-texto').value;
+            d.fontFamily = $('input-fuente').value;
+            d.fontSize = parseInt($('input-fontsize').value, 10) || 14;
+            d.fontWeight = $('input-fontweight').value;
+            d.lineHeight = parseFloat($('input-lineheight').value) || 1.4;
+            d.letterSpacing = parseFloat($('input-letterspacing').value) || 0;
+            d.ancho = Math.max(20, parseInt($('input-ancho').value, 10) || 20);
+            d.alto  = Math.max(10, parseInt($('input-alto').value, 10)  || 10);
+            d.x = parseInt($('input-x').value, 10) || 0;
+            d.y = parseInt($('input-y').value, 10) || 0;
+            d.rotacion = parseInt($('input-rotacion').value, 10) || 0;
+            d.opacidad = parseInt($('input-opacidad').value, 10);
+            if (isNaN(d.opacidad)) d.opacidad = 100;
+            d.borde = parseInt($('input-borde-num').value, 10) || 0;
+            d.gradiente = $('input-gradiente').checked;
+            $('row-gradiente').style.display = d.gradiente ? 'grid' : 'none';
+            d.anguloGrad = parseInt($('input-grad-angulo').value, 10) || 135;
+            d.borderWidth = parseInt($('input-border-width').value, 10) || 0;
+            d.borderStyle = $('input-border-style').value;
+            d.borderColor = $('input-border-color').value;
+            d.shadow = $('input-shadow').value;
+            d.animado = $('input-animacion').checked;
+            d.bloqueado = $('input-bloqueado').checked;
+
+            aplicarEstilos(el, d);
+            if (d.bloqueado) quitarHandles(); else if (idSeleccionado === d.id) dibujarHandles(el);
+            actualizarLista();
+            actualizarStats();
+        }
+
+        function syncRadio(v) { $('input-borde-range').value = v; $('input-borde-num').value = v; actualizarDesdePanel(); }
+        function syncRot(v)   { $('input-rotacion').value = v;   $('input-rotacion-num').value = v;   actualizarDesdePanel(); }
+        function syncOpa(v)   { $('input-opacidad').value = v;   $('input-opacidad-num').value = v;   actualizarDesdePanel(); }
+
+        function syncColor(tipo, v) {
+            const map = { bg: ['input-color','input-color-hex','color'], fg: ['input-color-texto','input-color-texto-hex','colorTexto'], bg2: ['input-color2','input-color2-hex','color2'] };
+            const [a, b, key] = map[tipo];
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!d) return;
+            let val = v.trim();
+            if (!val.startsWith('#') && /^[0-9a-fA-F]{6}$/.test(val)) val = '#' + val;
+            if (!isHex(val) && !val.startsWith('#')) return;
+            d[key] = val;
+            $(a).value = obtenerColorSeguro(val);
+            $(b).value = val.toUpperCase();
+            const el = $(idSeleccionado);
+            if (el) aplicarEstilos(el, d);
+        }
+
+        function setAlign(v) {
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!d) return;
+            guardarHistorial();
+            d.align = v;
+            aplicarEstilos($(idSeleccionado), d);
+            actualizarPanel();
+        }
+
+        function toggleStyle(v) {
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!d) return;
+            guardarHistorial();
+            const arr = d.estilo ? d.estilo.split(' ') : [];
+            const i = arr.indexOf(v);
+            if (i >= 0) arr.splice(i, 1); else arr.push(v);
+            d.estilo = arr.join(' ').trim();
+            aplicarEstilos($(idSeleccionado), d);
+            actualizarPanel();
+        }
+
+        /* ============================================================
+           CAPAS
+           ============================================================ */
+        function cambiarCapa(accion) {
+            if (!idSeleccionado) return;
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!d) return;
+            guardarHistorial();
+            const ord = [...elementosDatos].sort((a, b) => a.z - b.z);
+            const idx = ord.indexOf(d);
+            if (accion === 'frente')   { ord.splice(idx, 1); ord.push(d); }
+            else if (accion === 'fondo') { ord.splice(idx, 1); ord.unshift(d); }
+            else if (accion === 1 && idx < ord.length - 1)  [ord[idx], ord[idx+1]] = [ord[idx+1], ord[idx]];
+            else if (accion === -1 && idx > 0)              [ord[idx], ord[idx-1]] = [ord[idx-1], ord[idx]];
+            ord.forEach((dd, i) => { dd.z = i + 1; const el = $(dd.id); if (el) el.style.zIndex = dd.z; });
+            $('valor-capa').innerText = d.z;
+            actualizarLista();
+        }
+
+        /* ============================================================
+           DUPLICAR / COPIAR / PEGAR / BORRAR
+           ============================================================ */
+        function duplicarElemento() {
+            if (!idSeleccionado) return;
+            const o = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!o) return;
+            guardarHistorial();
+            const n = { ...o, id: nuevoId(), x: o.x + 24, y: o.y + 24, z: elementosDatos.length + 1 };
+            recrearElementoDesdeDatos(n);
+            seleccionarElemento(n.id);
+            actualizarLista();
+            actualizarStats();
+            toast('Elemento duplicado');
+        }
+        function copiarElemento() {
+            if (!idSeleccionado) return;
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (d) { portapapeles = { ...d }; toast('Copiado'); }
+        }
+        function pegarElemento() {
+            if (!portapapeles) return;
+            guardarHistorial();
+            const n = { ...portapapeles, id: nuevoId(), x: portapapeles.x + 20, y: portapapeles.y + 20, z: elementosDatos.length + 1 };
+            recrearElementoDesdeDatos(n);
+            seleccionarElemento(n.id);
+            portapapeles.x += 20; portapapeles.y += 20;
+            actualizarLista();
+            actualizarStats();
+            toast('Pegado');
+        }
+        function borrarElemento() {
+            if (!idSeleccionado) return;
+            guardarHistorial();
+            const el = $(idSeleccionado);
+            if (el) el.remove();
+            elementosDatos = elementosDatos.filter(e => e.id !== idSeleccionado);
+            idSeleccionado = null;
+            ocultarPanel();
+            actualizarLista();
+            actualizarStats();
+        }
+
+        function alinearAlCentro() {
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            if (!d) return;
+            guardarHistorial();
+            const dim = VIEWPORTS[viewport];
+            d.x = Math.round((dim.w - d.ancho) / 2);
+            aplicarEstilos($(d.id), d);
+            actualizarPanel();
+            toast('Centrado horizontalmente');
+        }
+
+        /* ============================================================
+           LIENZO / FONDO
+           ============================================================ */
+        function actualizarFondoLienzo() {
+            const lienzo = $('lienzo');
+            const grid = $('input-mostrar-grid')?.checked;
+            lienzo.style.backgroundColor = colorFondoActual;
+            if (grid) {
+                lienzo.style.backgroundImage = `
+                    linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0,0,0,.04) 1px, transparent 1px)`;
+                lienzo.style.backgroundSize = '20px 20px';
+            } else {
+                lienzo.style.backgroundImage = 'none';
+            }
+        }
+        function cambiarColorLienzo(c) {
+            let v = c.trim();
+            if (!v.startsWith('#') && /^[0-9a-fA-F]{6}$/.test(v)) v = '#' + v;
+            if (!isHex(v)) return;
+            colorFondoActual = v;
+            $('input-color-lienzo').value = v;
+            $('input-color-lienzo-hex').value = v.toUpperCase();
+            actualizarFondoLienzo();
+        }
+
+        /* ============================================================
+           PROYECTO
+           ============================================================ */
+        function nuevoProyecto() {
+            if (elementosDatos.length > 0 && !confirm('¿Empezar un proyecto nuevo? Se perderán los cambios sin guardar.')) return;
+            limpiarLienzo();
+            cambiarColorLienzo('#ffffff');
+            historial.length = 0;
+            futuro.length = 0;
+            actualizarBotonesHistorial();
+            localStorage.removeItem(AUTOSAVE_KEY);
+            $('stat-saved').innerText = 'Proyecto nuevo';
+        }
+        function limpiarLienzo() {
+            $('lienzo').innerHTML = '';
+            elementosDatos = [];
+            idSeleccionado = null;
+            ocultarPanel();
+            actualizarLista();
+            actualizarStats();
+        }
+        function cargarProyecto(evento) {
+            const archivo = evento.target.files[0];
+            if (!archivo) return;
+            const lector = new FileReader();
+            lector.onload = e => {
+                try {
+                    const datos = JSON.parse(e.target.result);
+                    limpiarLienzo();
+                    if (Array.isArray(datos)) {
+                        cambiarColorLienzo('#ffffff');
+                        datos.forEach(d => recrearElementoDesdeDatos(normalizar(d)));
+                    } else {
+                        cambiarColorLienzo(datos.configuracion?.fondo || '#ffffff');
+                        datos.elementos?.forEach(d => recrearElementoDesdeDatos(normalizar(d)));
+                    }
+                    actualizarLista();
+                    actualizarStats();
+                    toast('Proyecto cargado');
+                } catch { alert('No se pudo leer el archivo. JSON inválido.'); }
+            };
+            lector.readAsText(archivo);
+            evento.target.value = '';
+        }
+        // Asegura que un objeto tenga todos los campos esperados
+        function normalizar(d) {
+            return {
+                rotacion: 0, opacidad: 100, lineHeight: 1.4, letterSpacing: 0,
+                align: 'center', estilo: '', shadow: 'none',
+                borderWidth: 0, borderStyle: 'solid', borderColor: '#e2e8f0',
+                gradiente: false, color2: '#ec4899', anguloGrad: 135,
+                oculto: false, nombre: d.tipo || 'Elemento', ...d
+            };
+        }
+        function exportarJSON() {
+            if (elementosDatos.length === 0) { toast('Crea un elemento primero'); return; }
+            const proyecto = obtenerProyecto();
+            descargarArchivo(JSON.stringify(proyecto, null, 2), 'creador_pro_proyecto.json', 'application/json');
+            $('stat-saved').innerText = 'Guardado · ' + new Date().toLocaleTimeString();
+        }
+
+        /* ============================================================
+           EXPORTAR HTML
+           ============================================================ */
+        function htmlElemento(d, claseExtra) {
+            const cls = `el-${d.id}${claseExtra}`;
+            const txt = (d.texto || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+            switch (d.tipo) {
+                case 'Botón':    return `    <button class="${cls}">${txt}</button>\n`;
+                case 'Input':
+                case 'Buscador': return `    <input class="${cls}" type="${d.tipo === 'Buscador' ? 'search' : 'text'}" placeholder="${txt}">\n`;
+                case 'Textarea': return `    <textarea class="${cls}" placeholder="${txt}"></textarea>\n`;
+                case 'Select':   return `    <select class="${cls}"><option>${txt}</option></select>\n`;
+                case 'Título':   return `    <h1 class="${cls}">${txt}</h1>\n`;
+                case 'Subtítulo':return `    <h2 class="${cls}">${txt}</h2>\n`;
+                case 'Párrafo':  return `    <p class="${cls}">${txt.replace(/\n/g,'<br>')}</p>\n`;
+                case 'Lista':    return `    <ul class="${cls}">${txt.split('\n').map(l => `<li>${l.replace(/^[•·-]\s*/,'')}</li>`).join('')}</ul>\n`;
+                case 'Cita':     return `    <blockquote class="${cls}">${txt}</blockquote>\n`;
+                case 'Link':     return `    <a class="${cls}" href="#">${txt}</a>\n`;
+                case 'Imagen':   return `    <div class="${cls}" role="img" aria-label="imagen"></div>\n`;
+                case 'Progreso': return `    <div class="${cls}"><div style="height:100%;width:${d.valor}%;background:${d.colorTexto};border-radius:inherit;"></div></div>\n`;
+                default:         return `    <div class="${cls}">${txt.replace(/\n/g,'<br>')}</div>\n`;
+            }
+        }
+
+        function exportarHTMLCompleto() {
+            if (elementosDatos.length === 0) { toast('Crea un elemento primero'); return; }
+            const ordenados = [...elementosDatos].sort((a, b) => a.z - b.z);
+
+            let cssAnim = `
+        .anim-boton{transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s,filter .2s;cursor:pointer}
+        .anim-boton:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 8px 20px rgba(0,0,0,0.15);filter:brightness(1.05)}
+        .anim-tarjeta{transition:transform .3s,box-shadow .3s}
+        .anim-tarjeta:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,0.12)}
+        .anim-texto{transition:opacity .3s,transform .3s}
+        .anim-texto:hover{opacity:.85;transform:scale(1.02)}
+        .anim-basica{transition:filter .3s}
+        .anim-basica:hover{filter:brightness(0.95)}`;
+
+            let cssElems = '';
+            let html = '';
+            ordenados.forEach(d => {
+                const claseAnim = d.animado ? ` ${obtenerClaseAnimacion(d.tipo)}` : '';
+                html += htmlElemento(d, claseAnim);
+                const radio = (d.tipo === 'Círculo' || d.tipo === 'Avatar' || d.tipo === 'IconoSocial') ? '50%' : `${d.borde}px`;
+                const fondo = d.imagen ? `background:url("${d.imagen}") center/cover no-repeat;`
+                          : d.gradiente ? `background:linear-gradient(${d.anguloGrad}deg, ${d.color}, ${d.color2});`
+                          : `background-color:${d.color};`;
+                const just = d.align === 'left' ? 'flex-start' : d.align === 'right' ? 'flex-end' : 'center';
+                const deco = []; if (d.estilo.includes('underline')) deco.push('underline'); if (d.estilo.includes('line-through')) deco.push('line-through');
+                cssElems += `
+        .el-${d.id}{
+            position:absolute;left:${d.x}px;top:${d.y}px;width:${d.ancho}px;height:${d.alto}px;
+            ${fondo} color:${d.colorTexto};
+            border-radius:${radio};z-index:${d.z};
+            font-size:${d.fontSize}px;font-weight:${d.fontWeight};font-family:${d.fontFamily};
+            line-height:${d.lineHeight};letter-spacing:${d.letterSpacing}px;
+            display:flex;align-items:center;justify-content:${just};text-align:${d.align};
+            box-sizing:border-box;padding:6px 10px;margin:0;
+            transform:rotate(${d.rotacion}deg);opacity:${d.opacidad/100};
+            ${d.borderWidth > 0 && d.borderStyle !== 'none' ? `border:${d.borderWidth}px ${d.borderStyle} ${d.borderColor};` : ''}
+            box-shadow:${SHADOWS[d.shadow] || 'none'};
+            font-style:${d.estilo.includes('italic') ? 'italic' : 'normal'};
+            text-decoration:${deco.join(' ') || 'none'};
+            text-transform:${d.estilo.includes('uppercase') ? 'uppercase' : 'none'};
+            white-space:pre-wrap;overflow:hidden;
+        }`;
+            });
+
+            const altoTotal  = Math.max(...elementosDatos.map(d => d.y + d.alto)) + 60;
+            const anchoTotal = Math.max(...elementosDatos.map(d => d.x + d.ancho)) + 60;
+
+            const out = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sitio creado con Glifo Studio</title>
+<style>
+    *{box-sizing:border-box}
+    body{margin:0;padding:0;font-family:'Inter',system-ui,sans-serif;background:${colorFondoActual};min-height:100vh}
+    .wrap{position:relative;width:100%;min-width:${anchoTotal}px;min-height:${altoTotal}px}
+    button,input,textarea,select{font-family:inherit}
+${cssAnim}${cssElems}
+</style>
+</head>
+<body>
+<div class="wrap">
+${html}</div>
+</body>
+</html>`;
+            descargarArchivo(out, 'mi_sitio.html', 'text/html');
+            toast('HTML exportado');
+        }
+
+        function descargarArchivo(c, n, t) {
+            const blob = new Blob([c], { type: t });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = n;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        /* ============================================================
+           LISTA DE CAPAS
+           ============================================================ */
+        function actualizarLista() {
+            const cont = $('layers-list');
+            if (!cont) return;
+            const ord = [...elementosDatos].sort((a, b) => b.z - a.z);
+            cont.innerHTML = '';
+            if (ord.length === 0) {
+                cont.innerHTML = '<div style="color:var(--text-dim);font-size:11px;padding:8px;text-align:center;">Sin capas todavía</div>';
+                return;
+            }
+            ord.forEach(d => {
+                const item = document.createElement('div');
+                item.className = 'layer-item' + (d.id === idSeleccionado ? ' active' : '');
+                item.dataset.id = d.id;
+                item.onclick = () => seleccionarElemento(d.id);
+                item.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    <span class="layer-name">${d.nombre || d.tipo}</span>
+                    <div class="layer-actions">
+                        <button class="layer-mini" onclick="event.stopPropagation();toggleVisible('${d.id}')" title="Visibilidad">
+                            ${d.oculto
+                                ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 2l20 20M9 9a3 3 0 0 0 4.2 4.2"/><path d="M10.7 5.1c.4 0 .8-.1 1.3-.1 7 0 11 8 11 8a17 17 0 0 1-2.7 3.5"/><path d="M6.6 6.6A17 17 0 0 0 1 13s4 8 11 8a10 10 0 0 0 5.4-1.6"/></svg>'
+                                : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'}
+                        </button>
+                        <button class="layer-mini" onclick="event.stopPropagation();toggleLock('${d.id}')" title="Bloquear">
+                            ${d.bloqueado
+                                ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>'
+                                : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/></svg>'}
+                        </button>
+                    </div>`;
+                cont.appendChild(item);
+            });
+        }
+        function toggleVisible(id) {
+            const d = elementosDatos.find(e => e.id === id);
+            if (!d) return;
+            d.oculto = !d.oculto;
+            $(id).classList.toggle('oculto', d.oculto);
+            actualizarLista();
+        }
+        function toggleLock(id) {
+            const d = elementosDatos.find(e => e.id === id);
+            if (!d) return;
+            d.bloqueado = !d.bloqueado;
+            $(id).classList.toggle('bloqueado', d.bloqueado);
+            if (idSeleccionado === id) {
+                if (d.bloqueado) quitarHandles(); else dibujarHandles($(id));
+                $('input-bloqueado').checked = d.bloqueado;
+            }
+            actualizarLista();
+        }
+
+        /* ============================================================
+           STATS
+           ============================================================ */
+        function actualizarStats() {
+            $('stat-count').innerText = elementosDatos.length;
+            const d = elementosDatos.find(e => e.id === idSeleccionado);
+            $('stat-sel').innerText = d ? d.tipo : '—';
+            $('stat-pos').innerText = d ? `${d.x}, ${d.y}` : '0, 0';
+            $('stat-size').innerText = d ? `${d.ancho} × ${d.alto}` : '— × —';
+        }
+
+        /* ============================================================
+           CONTEXT MENU
+           ============================================================ */
+        function abrirContextoLienzo(e) {
+            if (e.target.classList.contains('elemento-dibujado') || e.target.classList.contains('resize-handle')) {
+                e.preventDefault();
+                const id = e.target.classList.contains('elemento-dibujado') ? e.target.id : e.target.parentElement.id;
+                seleccionarElemento(id);
+                const m = $('context-menu');
+                m.classList.add('open');
+                m.style.left = e.clientX + 'px';
+                m.style.top  = e.clientY + 'px';
+            }
+        }
+        document.addEventListener('click', () => $('context-menu').classList.remove('open'));
+
+        /* ============================================================
+           PREVIEW
+           ============================================================ */
+        function togglePreview() {
+            document.body.classList.toggle('preview-mode');
+            const on = document.body.classList.contains('preview-mode');
+            $('btn-preview').classList.toggle('primary', on);
+            quitarHandles();
+            if (!on && idSeleccionado) {
+                const d = elementosDatos.find(e => e.id === idSeleccionado);
+                if (d && !d.bloqueado) dibujarHandles($(idSeleccionado));
+            }
+        }
+
+        /* ============================================================
+           PLANTILLAS
+           ============================================================ */
+        const plantillas = {
+            landing: () => {
+                limpiarLienzo();
+                crearElemento('Navbar'); ajustar({ x: 80, y: 40 });
+                crearElemento('Hero', { texto: 'Diseña tu próximo sitio web' }); ajustar({ x: 80, y: 130 });
+                crearElemento('Subtítulo', { texto: 'La forma más rápida y bonita de prototipar' }); ajustar({ x: 80, y: 470 });
+                crearElemento('Botón', { texto: 'Empezar gratis →' }); ajustar({ x: 80, y: 540 });
+                crearElemento('Botón', { texto: 'Ver demo' });
+                const ult = elementosDatos[elementosDatos.length - 1];
+                ult.color = '#ffffff'; ult.colorTexto = '#0f172a'; ult.borderWidth = 1; ult.borderColor = '#cbd5e1';
+                ajustar({ x: 260, y: 540 });
+                aplicarEstilos($(ult.id), ult);
+            },
+            contacto: () => {
+                limpiarLienzo();
+                crearElemento('Título', { texto: 'Contáctanos' }); ajustar({ x: 80, y: 60 });
+                crearElemento('Párrafo', { texto: 'Cuéntanos sobre tu proyecto y te responderemos en menos de 24 horas.' }); ajustar({ x: 80, y: 140 });
+                crearElemento('Input',    { texto: 'Tu nombre' });    ajustar({ x: 80, y: 240 });
+                crearElemento('Input',    { texto: 'tu@email.com' }); ajustar({ x: 80, y: 300 });
+                crearElemento('Textarea', { texto: 'Tu mensaje...' });ajustar({ x: 80, y: 360 });
+                crearElemento('Botón',    { texto: 'Enviar mensaje' }); ajustar({ x: 80, y: 500 });
+            },
+            precios: () => {
+                limpiarLienzo();
+                crearElemento('Título', { texto: 'Planes y precios' }); ajustar({ x: 80, y: 50 });
+                ['Básico', 'Pro', 'Enterprise'].forEach((p, i) => {
+                    crearElemento('Card'); ajustar({ x: 80 + i * 320, y: 140 });
+                    crearElemento('Subtítulo', { texto: p }); ajustar({ x: 110 + i * 320, y: 170 });
+                    crearElemento('Título', { texto: '$' + (9 + i * 20) }); ajustar({ x: 110 + i * 320, y: 230 });
+                    crearElemento('Párrafo', { texto: 'Lorem ipsum dolor sit amet consectetur.' }); ajustar({ x: 110 + i * 320, y: 310 });
+                    crearElemento('Botón', { texto: 'Elegir plan' }); ajustar({ x: 110 + i * 320, y: 400 });
+                });
+            },
+            perfil: () => {
+                limpiarLienzo();
+                crearElemento('Card'); ajustar({ x: 100, y: 80 });
+                crearElemento('Avatar', { texto: 'JS' }); ajustar({ x: 200, y: 110 });
+                crearElemento('Subtítulo', { texto: 'Juan Suárez' }); ajustar({ x: 130, y: 220 });
+                crearElemento('Párrafo', { texto: 'Diseñador de productos digitales' }); ajustar({ x: 130, y: 270 });
+                crearElemento('Botón', { texto: 'Seguir' }); ajustar({ x: 130, y: 340 });
+            },
+            dashboard: () => {
+                limpiarLienzo();
+                crearElemento('Navbar', { texto: 'Dashboard · Reportes · Cuenta' }); ajustar({ x: 60, y: 40 });
+                ['Usuarios', 'Ingresos', 'Conversión'].forEach((k, i) => {
+                    crearElemento('KPI', { texto: (i === 0 ? '12.4K' : i === 1 ? '$45K' : '4.8%') + '\n' + k });
+                    ajustar({ x: 60 + i * 220, y: 130 });
+                });
+                crearElemento('Card'); ajustar({ x: 60, y: 270 });
+                crearElemento('Subtítulo', { texto: 'Progreso semanal' }); ajustar({ x: 90, y: 300 });
+                crearElemento('Progreso'); ajustar({ x: 90, y: 360 });
+            }
+        };
+        function ajustar(pos) {
+            const d = elementosDatos[elementosDatos.length - 1];
+            d.x = pos.x; d.y = pos.y;
+            aplicarEstilos($(d.id), d);
+        }
+        function cargarPlantilla(nombre) {
+            if (elementosDatos.length > 0 && !confirm('Esto reemplazará tu trabajo actual. ¿Continuar?')) return;
+            plantillas[nombre]?.();
+            seleccionarElemento(null);
+            ocultarPanel();
+            actualizarLista();
+            actualizarStats();
+            toast('Plantilla cargada: ' + nombre);
+        }
+
+        /* ============================================================
+           INIT
+           ============================================================ */
+        actualizarFondoLienzo();
+        actualizarBotonesHistorial();
+        actualizarStats();
+        setViewport('desktop');
+        const observadorAutoguardado = new MutationObserver(programarAutoguardado);
+        observadorAutoguardado.observe($('lienzo'), {
+            attributes: true,
+            childList: true,
+            characterData: true,
+            subtree: true
+        });
+        restaurarAutoguardado();
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 32">
+  <rect x="0" y="0" width="32" height="32" rx="8" fill="#ff6b1a"/>
+  <path d="M22 12.5C20.7 10.4 18.5 9 16 9C12.1 9 9.5 12 9.5 16C9.5 20 12.1 23 16 23C19 23 21.5 21 22 18V14.5H16.5"
+    stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="24.5" cy="24.5" r="1.6" fill="#ffffff"/>
+  <text x="42" y="22" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" fill="#f5f5f5" letter-spacing="-0.02em">Glifo</text>
+  <text x="86" y="22" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="500" fill="#9ca3af" letter-spacing="0.06em">STUDIO</text>
+</svg>
